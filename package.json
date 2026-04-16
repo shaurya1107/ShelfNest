@@ -1,0 +1,15 @@
+{
+  "name": "shelfnest",
+  "version": "1.0.0",
+  "description": "ShelfNest – Community Shelf Platform for lending and borrowing items",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n server,client -c green,blue \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "seed": "node server/db/seed.js",
+    "build": "npm run build --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
