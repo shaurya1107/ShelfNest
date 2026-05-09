@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createItem, updateItem, getItem, uploadImage } from '../api';
 import toast from 'react-hot-toast';
-import { Save, ArrowLeft, Upload, Package } from 'lucide-react';
+
 
 const CATEGORIES = ['Tools', 'Kitchen', 'Electronics', 'Outdoor', 'Crafts', 'Sports', 'Books', 'Other'];
 const CONDITIONS = ['Like New', 'Excellent', 'Good', 'Fair'];
@@ -72,7 +72,7 @@ export default function CreateItem() {
   return (
     <div className="page-container fade-in">
       <button className="btn btn-ghost mb-2" onClick={() => navigate(-1)}>
-        <ArrowLeft size={18} /> Back
+        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_back</span> Back
       </button>
 
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
@@ -95,7 +95,7 @@ export default function CreateItem() {
                       <div className="spinner" style={{ margin: '0 auto' }} />
                     ) : (
                       <>
-                        <Upload size={32} />
+                        <span className="material-symbols-outlined" style={{ fontSize: 32 }}>cloud_upload</span>
                         <p className="text-sm mt-1">Click to upload an image</p>
                         <p className="text-xs text-muted">JPG, PNG, WebP up to 5MB</p>
                       </>
@@ -187,7 +187,7 @@ export default function CreateItem() {
 
             <button type="submit" className="btn btn-primary btn-lg btn-full mt-2" disabled={loading} id="submit-item">
               {loading ? <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /> : <>
-                <Save size={18} /> {id ? 'Update Item' : 'List Item'}
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span> {id ? 'Update Item' : 'List Item'}
               </>}
             </button>
           </form>

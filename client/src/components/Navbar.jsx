@@ -1,67 +1,69 @@
-import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, Package, CalendarDays, PlusCircle, User, LogOut, Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const links = [
-    { path: '/', label: 'Browse', icon: Home },
-    { path: '/my-items', label: 'My Items', icon: Package },
-    { path: '/bookings', label: 'Bookings', icon: CalendarDays },
-    { path: '/items/new', label: 'List Item', icon: PlusCircle },
+  const navItems = [
+    { path: '/', label: 'Home', icon: 'home' },
+    { path: '/my-items', label: 'Explore', icon: 'explore' },
+    { path: '/bookings', label: 'Rentals', icon: 'handyman' },
+    { path: '/profile', label: 'Profile', icon: 'person' },
   ];
 
-  const getInitials = (name) => name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-
   return (
-    <nav className="navbar">
-      <div className="navbar-inner">
-        <Link to="/" className="navbar-brand" onClick={() => setMobileOpen(false)}>
-          <span className="brand-icon">📦</span>
-          <span>ShelfNest</span>
-        </Link>
-
-        <div className={`navbar-links ${mobileOpen ? 'open' : ''}`}>
-          {links.map(({ path, label, icon: Icon }) => (
-            <Link
-              key={path}
-              to={path}
-              className={`nav-link ${location.pathname === path ? 'active' : ''}`}
-              onClick={() => setMobileOpen(false)}
+    <>
+      {/* Top App Bar */}
+      <header className="navbar">
+        <div className="navbar-inner">
+          <Link to="/" className="navbar-brand">
+            <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-primary)' }}>location_on</span>
+            <span>ShelfNest</span>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+            <button
+              className="material-symbols-outlined"
+              style={{
+                background: 'none', border: 'none', color: 'var(--text-secondary)',
+                cursor: 'pointer', padding: 'var(--space-sm)', borderRadius: 'var(--radius-full)',
+                fontSize: 24, transition: 'background var(--transition-fast)',
+              }}
+              title="Search"
             >
-              <Icon size={18} />
-              {label}
-            </Link>
-          ))}
-          <div className="navbar-user" style={{ marginLeft: '0.5rem' }}>
-            <Link
-              to="/profile"
-              className={`nav-link ${location.pathname === '/profile' ? 'active' : ''}`}
-              onClick={() => setMobileOpen(false)}
-            >
-              <div className="user-avatar">
-                {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.name} />
-                ) : (
-                  getInitials(user?.name)
-                )}
-              </div>
-              <span className="text-sm">{user?.name?.split(' ')[0]}</span>
-            </Link>
-            <button className="btn btn-ghost btn-sm" onClick={() => { logout(); setMobileOpen(false); }} title="Logout">
-              <LogOut size={18} />
+              search
             </button>
+            {user && (
+              <button
+                onClick={logout}
+                className="material-symbols-outlined"
+                style={{
+                  background: 'none', border: 'none', color: 'var(--text-secondary)',
+                  cursor: 'pointer', padding: 'var(--space-sm)', borderRadius: 'var(--radius-full)',
+                  fontSize: 24, transition: 'background var(--transition-fast)',
+                }}
+                title="Sign Out"
+              >
+                logout
+              </button>
+            )}
           </div>
         </div>
+      </header>
 
-        <button className="nav-hamburger" onClick={() => setMobileOpen(!mobileOpen)}>
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-    </nav>
+      {/* Bottom Navigation Bar */}
+      <nav className="bottom-nav">
+        {navItems.map(({ path, label, icon }) => (
+          <Link
+            key={path}
+            to={path}
+            className={`bottom-nav-item ${location.pathname === path ? 'active' : ''}`}
+          >
+            <span className="material-symbols-outlined">{icon}</span>
+            <span>{label}</span>
+          </Link>
+        ))}
+      </nav>
+    </>
   );
 }

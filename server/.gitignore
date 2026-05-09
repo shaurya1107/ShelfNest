@@ -1,0 +1,5 @@
+.env
+node_modules/
+uploads/
+shelfnest.db
+prisma/migrations/

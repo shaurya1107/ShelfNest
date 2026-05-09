@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import db from '../db/init.js';
+import prisma from '../db/init.js';
 import { generateToken, authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
 // POST /api/auth/register
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { name, email, password, phone, address, community_code } = req.body;
 
@@ -18,23 +18,28 @@ router.post('/register', (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const existing = db.get('SELECT id FROM users WHERE email = ?', [email]);
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
     const password_hash = bcrypt.hashSync(password, 10);
-    const result = db.run(
-      'INSERT INTO users (name, email, password_hash, phone, address, community_code) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, email, password_hash, phone || null, address || null, community_code.toUpperCase()]
-    );
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password_hash,
+        phone: phone || null,
+        address: address || null,
+        community_code: community_code.toUpperCase(),
+      },
+      select: {
+        id: true, name: true, email: true, phone: true, address: true,
+        community_code: true, avatar_url: true, bio: true, is_verified: true, created_at: true,
+      },
+    });
 
-    const user = db.get(
-      'SELECT id, name, email, phone, address, community_code, avatar_url, bio, is_verified, created_at FROM users WHERE id = ?',
-      [result.lastInsertRowid]
-    );
     const token = generateToken(user);
-
     res.status(201).json({ user, token });
   } catch (err) {
     console.error('Register error:', err);
@@ -43,7 +48,7 @@ router.post('/register', (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -51,7 +56,7 @@ router.post('/login', (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = db.get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -71,12 +76,15 @@ router.post('/login', (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', authenticate, (req, res) => {
+router.get('/me', authenticate, async (req, res) => {
   try {
-    const user = db.get(
-      'SELECT id, name, email, phone, address, community_code, avatar_url, bio, is_verified, created_at FROM users WHERE id = ?',
-      [req.user.id]
-    );
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true, name: true, email: true, phone: true, address: true,
+        community_code: true, avatar_url: true, bio: true, is_verified: true, created_at: true,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -90,31 +98,29 @@ router.get('/me', authenticate, (req, res) => {
 });
 
 // PUT /api/auth/profile
-router.put('/profile', authenticate, (req, res) => {
+router.put('/profile', authenticate, async (req, res) => {
   try {
     const { name, phone, address, bio, avatar_url } = req.body;
-    const user = db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    const currentUser = await prisma.user.findUnique({ where: { id: req.user.id } });
 
-    if (!user) {
+    if (!currentUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    db.run(
-      'UPDATE users SET name = ?, phone = ?, address = ?, bio = ?, avatar_url = ? WHERE id = ?',
-      [
-        name || user.name,
-        phone || user.phone,
-        address || user.address,
-        bio !== undefined ? bio : user.bio,
-        avatar_url || user.avatar_url,
-        req.user.id
-      ]
-    );
-
-    const updated = db.get(
-      'SELECT id, name, email, phone, address, community_code, avatar_url, bio, is_verified, created_at FROM users WHERE id = ?',
-      [req.user.id]
-    );
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        name: name || currentUser.name,
+        phone: phone || currentUser.phone,
+        address: address || currentUser.address,
+        bio: bio !== undefined ? bio : currentUser.bio,
+        avatar_url: avatar_url || currentUser.avatar_url,
+      },
+      select: {
+        id: true, name: true, email: true, phone: true, address: true,
+        community_code: true, avatar_url: true, bio: true, is_verified: true, created_at: true,
+      },
+    });
 
     res.json(updated);
   } catch (err) {
@@ -124,27 +130,33 @@ router.put('/profile', authenticate, (req, res) => {
 });
 
 // GET /api/auth/user/:id
-router.get('/user/:id', authenticate, (req, res) => {
+router.get('/user/:id', authenticate, async (req, res) => {
   try {
-    const user = db.get(
-      'SELECT id, name, email, community_code, avatar_url, bio, created_at FROM users WHERE id = ?',
-      [req.params.id]
-    );
+    const userId = parseInt(req.params.id);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true, name: true, email: true, community_code: true,
+        avatar_url: true, bio: true, created_at: true,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const itemCount = db.get('SELECT COUNT(*) as count FROM items WHERE owner_id = ?', [req.params.id]);
-    const avgRating = db.get('SELECT AVG(rating) as avg FROM reviews WHERE reviewee_id = ?', [req.params.id]);
-    const reviewCount = db.get('SELECT COUNT(*) as count FROM reviews WHERE reviewee_id = ?', [req.params.id]);
+    const [itemCount, avgRating, reviewCount] = await Promise.all([
+      prisma.item.count({ where: { owner_id: userId } }),
+      prisma.review.aggregate({ where: { reviewee_id: userId }, _avg: { rating: true } }),
+      prisma.review.count({ where: { reviewee_id: userId } }),
+    ]);
 
     res.json({
       ...user,
       stats: {
-        items_listed: itemCount?.count || 0,
-        avg_rating: avgRating?.avg ? Math.round(avgRating.avg * 10) / 10 : null,
-        review_count: reviewCount?.count || 0,
+        items_listed: itemCount,
+        avg_rating: avgRating._avg.rating ? Math.round(avgRating._avg.rating * 10) / 10 : null,
+        review_count: reviewCount,
       },
     });
   } catch (err) {

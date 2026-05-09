@@ -1,0 +1,108 @@
+// Prisma schema for ShelfNest – PostgreSQL
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  name           String
+  email          String    @unique
+  password_hash  String
+  phone          String?
+  address        String?
+  community_code String
+  avatar_url     String?
+  bio            String    @default("")
+  is_verified    Boolean   @default(true)
+  created_at     DateTime  @default(now())
+
+  // Relations
+  items             Item[]
+  bookings          Booking[]  @relation("BorrowerBookings")
+  reviews_given     Review[]   @relation("ReviewerReviews")
+  reviews_received  Review[]   @relation("RevieweeReviews")
+
+  @@index([community_code])
+  @@map("users")
+}
+
+model Item {
+  id              Int       @id @default(autoincrement())
+  owner_id        Int
+  title           String
+  description     String?
+  category        String
+  item_condition  String    @default("Good")
+  image_url       String?
+  deposit_amount  Float     @default(0)
+  is_available    Boolean   @default(true)
+  created_at      DateTime  @default(now())
+
+  // Relations
+  owner    User      @relation(fields: [owner_id], references: [id], onDelete: Cascade)
+  bookings Booking[]
+  reviews  Review[]
+
+  @@index([owner_id])
+  @@map("items")
+}
+
+enum BookingStatus {
+  pending
+  approved
+  rejected
+  active
+  completed
+  cancelled
+}
+
+model Booking {
+  id               Int           @id @default(autoincrement())
+  item_id          Int
+  borrower_id      Int
+  start_date       String
+  end_date         String
+  status           BookingStatus @default(pending)
+  pickup_image_url String?
+  return_image_url String?
+  notes            String?
+  created_at       DateTime      @default(now())
+
+  // Relations
+  item     Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  borrower User     @relation("BorrowerBookings", fields: [borrower_id], references: [id], onDelete: Cascade)
+  reviews  Review[]
+
+  @@index([item_id])
+  @@index([borrower_id])
+  @@index([status])
+  @@index([start_date, end_date])
+  @@map("bookings")
+}
+
+model Review {
+  id          Int      @id @default(autoincrement())
+  booking_id  Int
+  reviewer_id Int
+  reviewee_id Int
+  item_id     Int
+  rating      Int
+  comment     String?
+  created_at  DateTime @default(now())
+
+  // Relations
+  booking  Booking @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  reviewer User    @relation("ReviewerReviews", fields: [reviewer_id], references: [id], onDelete: Cascade)
+  reviewee User    @relation("RevieweeReviews", fields: [reviewee_id], references: [id], onDelete: Cascade)
+  item     Item    @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@unique([booking_id, reviewer_id])
+  @@index([reviewee_id])
+  @@map("reviews")
+}

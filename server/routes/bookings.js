@@ -1,52 +1,77 @@
 import { Router } from 'express';
-import db from '../db/init.js';
+import prisma from '../db/init.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
 // Helper: check date overlap
-function hasDateConflict(itemId, startDate, endDate, excludeBookingId = null) {
-  let sql = `
-    SELECT id FROM bookings
-    WHERE item_id = ? AND status IN ('approved', 'active')
-    AND start_date <= ? AND end_date >= ?
-  `;
-  const params = [itemId, endDate, startDate];
+async function hasDateConflict(itemId, startDate, endDate, excludeBookingId = null) {
+  const where = {
+    item_id: itemId,
+    status: { in: ['approved', 'active'] },
+    start_date: { lte: endDate },
+    end_date: { gte: startDate },
+  };
 
   if (excludeBookingId) {
-    sql += ' AND id != ?';
-    params.push(excludeBookingId);
+    where.id = { not: excludeBookingId };
   }
 
-  return db.get(sql, params);
+  return prisma.booking.findFirst({ where });
 }
 
-// GET /api/bookings - user's bookings (as borrower)
-router.get('/', authenticate, (req, res) => {
+// GET /api/bookings - user's bookings
+router.get('/', authenticate, async (req, res) => {
   try {
     const { role } = req.query;
 
     let bookings;
     if (role === 'owner') {
-      bookings = db.all(`
-        SELECT b.*, i.title as item_title, i.image_url as item_image, i.category as item_category,
-          u.name as borrower_name, u.avatar_url as borrower_avatar, u.email as borrower_email
-        FROM bookings b
-        JOIN items i ON b.item_id = i.id
-        JOIN users u ON b.borrower_id = u.id
-        WHERE i.owner_id = ?
-        ORDER BY b.created_at DESC
-      `, [req.user.id]);
+      bookings = await prisma.booking.findMany({
+        where: { item: { owner_id: req.user.id } },
+        include: {
+          item: { select: { title: true, image_url: true, category: true } },
+          borrower: { select: { name: true, avatar_url: true, email: true } },
+        },
+        orderBy: { created_at: 'desc' },
+      });
+
+      bookings = bookings.map(b => {
+        const { item, borrower, ...rest } = b;
+        return {
+          ...rest,
+          item_title: item.title,
+          item_image: item.image_url,
+          item_category: item.category,
+          borrower_name: borrower.name,
+          borrower_avatar: borrower.avatar_url,
+          borrower_email: borrower.email,
+        };
+      });
     } else {
-      bookings = db.all(`
-        SELECT b.*, i.title as item_title, i.image_url as item_image, i.category as item_category,
-          i.owner_id, u.name as owner_name, u.avatar_url as owner_avatar
-        FROM bookings b
-        JOIN items i ON b.item_id = i.id
-        JOIN users u ON i.owner_id = u.id
-        WHERE b.borrower_id = ?
-        ORDER BY b.created_at DESC
-      `, [req.user.id]);
+      bookings = await prisma.booking.findMany({
+        where: { borrower_id: req.user.id },
+        include: {
+          item: {
+            select: { title: true, image_url: true, category: true, owner_id: true },
+            include: { owner: { select: { name: true, avatar_url: true } } },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+      });
+
+      bookings = bookings.map(b => {
+        const { item, ...rest } = b;
+        return {
+          ...rest,
+          item_title: item.title,
+          item_image: item.image_url,
+          item_category: item.category,
+          owner_id: item.owner_id,
+          owner_name: item.owner.name,
+          owner_avatar: item.owner.avatar_url,
+        };
+      });
     }
 
     res.json(bookings);
@@ -57,7 +82,7 @@ router.get('/', authenticate, (req, res) => {
 });
 
 // POST /api/bookings - create a booking request
-router.post('/', authenticate, (req, res) => {
+router.post('/', authenticate, async (req, res) => {
   try {
     const { item_id, start_date, end_date, notes } = req.body;
 
@@ -73,7 +98,7 @@ router.post('/', authenticate, (req, res) => {
       return res.status(400).json({ error: 'Cannot book dates in the past' });
     }
 
-    const item = db.get('SELECT * FROM items WHERE id = ?', [item_id]);
+    const item = await prisma.item.findUnique({ where: { id: parseInt(item_id) } });
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
@@ -86,24 +111,30 @@ router.post('/', authenticate, (req, res) => {
       return res.status(400).json({ error: 'Item is not available for booking' });
     }
 
-    const conflict = hasDateConflict(item_id, start_date, end_date);
+    const conflict = await hasDateConflict(parseInt(item_id), start_date, end_date);
     if (conflict) {
       return res.status(409).json({ error: 'Dates conflict with an existing booking' });
     }
 
-    const result = db.run(
-      'INSERT INTO bookings (item_id, borrower_id, start_date, end_date, notes) VALUES (?, ?, ?, ?, ?)',
-      [item_id, req.user.id, start_date, end_date, notes || null]
-    );
+    const booking = await prisma.booking.create({
+      data: {
+        item_id: parseInt(item_id),
+        borrower_id: req.user.id,
+        start_date,
+        end_date,
+        notes: notes || null,
+      },
+      include: {
+        item: { select: { title: true, image_url: true } },
+      },
+    });
 
-    const booking = db.get(`
-      SELECT b.*, i.title as item_title, i.image_url as item_image
-      FROM bookings b
-      JOIN items i ON b.item_id = i.id
-      WHERE b.id = ?
-    `, [result.lastInsertRowid]);
-
-    res.status(201).json(booking);
+    const { item: bookingItem, ...rest } = booking;
+    res.status(201).json({
+      ...rest,
+      item_title: bookingItem.title,
+      item_image: bookingItem.image_url,
+    });
   } catch (err) {
     console.error('Create booking error:', err);
     res.status(500).json({ error: 'Server error creating booking' });
@@ -111,24 +142,28 @@ router.post('/', authenticate, (req, res) => {
 });
 
 // PUT /api/bookings/:id/approve
-router.put('/:id/approve', authenticate, (req, res) => {
+router.put('/:id/approve', authenticate, async (req, res) => {
   try {
-    const booking = db.get(`
-      SELECT b.*, i.owner_id FROM bookings b JOIN items i ON b.item_id = i.id WHERE b.id = ?
-    `, [req.params.id]);
+    const bookingId = parseInt(req.params.id);
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { item: { select: { owner_id: true } } },
+    });
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can approve' });
+    if (booking.item.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can approve' });
     if (booking.status !== 'pending') return res.status(400).json({ error: 'Can only approve pending bookings' });
 
-    const conflict = hasDateConflict(booking.item_id, booking.start_date, booking.end_date, booking.id);
+    const conflict = await hasDateConflict(booking.item_id, booking.start_date, booking.end_date, booking.id);
     if (conflict) {
       return res.status(409).json({ error: 'Dates conflict with another approved booking' });
     }
 
-    db.run("UPDATE bookings SET status = 'approved' WHERE id = ?", [req.params.id]);
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'approved' },
+    });
 
-    const updated = db.get('SELECT * FROM bookings WHERE id = ?', [req.params.id]);
     res.json(updated);
   } catch (err) {
     console.error('Approve booking error:', err);
@@ -137,19 +172,23 @@ router.put('/:id/approve', authenticate, (req, res) => {
 });
 
 // PUT /api/bookings/:id/reject
-router.put('/:id/reject', authenticate, (req, res) => {
+router.put('/:id/reject', authenticate, async (req, res) => {
   try {
-    const booking = db.get(`
-      SELECT b.*, i.owner_id FROM bookings b JOIN items i ON b.item_id = i.id WHERE b.id = ?
-    `, [req.params.id]);
+    const bookingId = parseInt(req.params.id);
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { item: { select: { owner_id: true } } },
+    });
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can reject' });
+    if (booking.item.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can reject' });
     if (booking.status !== 'pending') return res.status(400).json({ error: 'Can only reject pending bookings' });
 
-    db.run("UPDATE bookings SET status = 'rejected' WHERE id = ?", [req.params.id]);
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'rejected' },
+    });
 
-    const updated = db.get('SELECT * FROM bookings WHERE id = ?', [req.params.id]);
     res.json(updated);
   } catch (err) {
     console.error('Reject booking error:', err);
@@ -158,21 +197,24 @@ router.put('/:id/reject', authenticate, (req, res) => {
 });
 
 // PUT /api/bookings/:id/activate
-router.put('/:id/activate', authenticate, (req, res) => {
+router.put('/:id/activate', authenticate, async (req, res) => {
   try {
-    const booking = db.get(`
-      SELECT b.*, i.owner_id FROM bookings b JOIN items i ON b.item_id = i.id WHERE b.id = ?
-    `, [req.params.id]);
+    const bookingId = parseInt(req.params.id);
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { item: { select: { owner_id: true } } },
+    });
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can mark as active' });
+    if (booking.item.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can mark as active' });
     if (booking.status !== 'approved') return res.status(400).json({ error: 'Can only activate approved bookings' });
 
     const { pickup_image_url } = req.body;
-    db.run("UPDATE bookings SET status = 'active', pickup_image_url = ? WHERE id = ?",
-      [pickup_image_url || null, req.params.id]);
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'active', pickup_image_url: pickup_image_url || null },
+    });
 
-    const updated = db.get('SELECT * FROM bookings WHERE id = ?', [req.params.id]);
     res.json(updated);
   } catch (err) {
     console.error('Activate booking error:', err);
@@ -181,21 +223,24 @@ router.put('/:id/activate', authenticate, (req, res) => {
 });
 
 // PUT /api/bookings/:id/complete
-router.put('/:id/complete', authenticate, (req, res) => {
+router.put('/:id/complete', authenticate, async (req, res) => {
   try {
-    const booking = db.get(`
-      SELECT b.*, i.owner_id FROM bookings b JOIN items i ON b.item_id = i.id WHERE b.id = ?
-    `, [req.params.id]);
+    const bookingId = parseInt(req.params.id);
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { item: { select: { owner_id: true } } },
+    });
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can complete' });
+    if (booking.item.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can complete' });
     if (booking.status !== 'active') return res.status(400).json({ error: 'Can only complete active bookings' });
 
     const { return_image_url } = req.body;
-    db.run("UPDATE bookings SET status = 'completed', return_image_url = ? WHERE id = ?",
-      [return_image_url || null, req.params.id]);
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'completed', return_image_url: return_image_url || null },
+    });
 
-    const updated = db.get('SELECT * FROM bookings WHERE id = ?', [req.params.id]);
     res.json(updated);
   } catch (err) {
     console.error('Complete booking error:', err);
@@ -204,9 +249,10 @@ router.put('/:id/complete', authenticate, (req, res) => {
 });
 
 // PUT /api/bookings/:id/cancel
-router.put('/:id/cancel', authenticate, (req, res) => {
+router.put('/:id/cancel', authenticate, async (req, res) => {
   try {
-    const booking = db.get('SELECT * FROM bookings WHERE id = ?', [req.params.id]);
+    const bookingId = parseInt(req.params.id);
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
     if (booking.borrower_id !== req.user.id) return res.status(403).json({ error: 'Only borrower can cancel' });
@@ -214,9 +260,11 @@ router.put('/:id/cancel', authenticate, (req, res) => {
       return res.status(400).json({ error: 'Can only cancel pending or approved bookings' });
     }
 
-    db.run("UPDATE bookings SET status = 'cancelled' WHERE id = ?", [req.params.id]);
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'cancelled' },
+    });
 
-    const updated = db.get('SELECT * FROM bookings WHERE id = ?', [req.params.id]);
     res.json(updated);
   } catch (err) {
     console.error('Cancel booking error:', err);
