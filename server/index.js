@@ -20,10 +20,30 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0'; // Required for Render
 
-// Middleware
-app.use(cors());
+// CORS — allow local dev + deployed frontend
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    }
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
+
+// Serve local uploads (dev only; production uses Cloudinary URLs)
 app.use('/uploads', express.static(join(__dirname, 'uploads')));
 
 // Routes
@@ -40,8 +60,8 @@ app.get('/api/health', (req, res) => {
 
 // Initialize DB then start server
 initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`\n  🏠 ShelfNest API running at http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`\n  🏠 ShelfNest API running at http://${HOST}:${PORT}`);
     console.log(`  📦 Database: PostgreSQL (Prisma ORM)\n`);
   });
 }).catch(err => {
