@@ -233,7 +233,9 @@ router.put('/:id/complete', authenticate, async (req, res) => {
     });
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.item.owner_id !== req.user.id) return res.status(403).json({ error: 'Only item owner can complete' });
+    const isOwner = booking.item.owner_id === req.user.id;
+    const isBorrower = booking.borrower_id === req.user.id;
+    if (!isOwner && !isBorrower) return res.status(403).json({ error: 'Unauthorized to complete this booking' });
     if (booking.status !== 'active') return res.status(400).json({ error: 'Can only complete active bookings' });
 
     const { return_image_url } = req.body;
