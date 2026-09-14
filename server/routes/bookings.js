@@ -30,8 +30,8 @@ router.get('/', authenticate, async (req, res) => {
       bookings = await prisma.booking.findMany({
         where: { item: { owner_id: req.user.id } },
         include: {
-          item: { select: { title: true, image_url: true, category: true } },
-          borrower: { select: { name: true, avatar_url: true, email: true } },
+          item: true,
+          borrower: true,
         },
         orderBy: { created_at: 'desc' },
       });
@@ -40,12 +40,12 @@ router.get('/', authenticate, async (req, res) => {
         const { item, borrower, ...rest } = b;
         return {
           ...rest,
-          item_title: item.title,
-          item_image: item.image_url,
-          item_category: item.category,
-          borrower_name: borrower.name,
-          borrower_avatar: borrower.avatar_url,
-          borrower_email: borrower.email,
+          item_title: item ? item.title : 'Item',
+          item_image: item ? item.image_url : null,
+          item_category: item ? item.category : 'General',
+          borrower_name: borrower ? borrower.name : 'Community Member',
+          borrower_avatar: borrower ? borrower.avatar_url : null,
+          borrower_email: borrower ? borrower.email : null,
         };
       });
     } else {
@@ -53,8 +53,9 @@ router.get('/', authenticate, async (req, res) => {
         where: { borrower_id: req.user.id },
         include: {
           item: {
-            select: { title: true, image_url: true, category: true, owner_id: true },
-            include: { owner: { select: { name: true, avatar_url: true } } },
+            include: {
+              owner: true,
+            },
           },
         },
         orderBy: { created_at: 'desc' },
@@ -64,12 +65,12 @@ router.get('/', authenticate, async (req, res) => {
         const { item, ...rest } = b;
         return {
           ...rest,
-          item_title: item.title,
-          item_image: item.image_url,
-          item_category: item.category,
-          owner_id: item.owner_id,
-          owner_name: item.owner.name,
-          owner_avatar: item.owner.avatar_url,
+          item_title: item ? item.title : 'Item',
+          item_image: item ? item.image_url : null,
+          item_category: item ? item.category : 'General',
+          owner_id: item ? item.owner_id : null,
+          owner_name: item && item.owner ? item.owner.name : 'Community Member',
+          owner_avatar: item && item.owner ? item.owner.avatar_url : null,
         };
       });
     }

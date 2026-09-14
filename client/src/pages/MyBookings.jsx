@@ -22,7 +22,7 @@ export default function MyBookings() {
 
   const fetchBookings = useCallback(async () => {
     try { setLoading(true); const data = await getBookings(tab); setBookings(data); }
-    catch (err) { toast.error('Failed to load bookings'); } finally { setLoading(false); }
+    catch (err) { console.error('Fetch bookings error:', err); toast.error(err.message || 'Failed to load bookings'); } finally { setLoading(false); }
   }, [tab]);
 
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
