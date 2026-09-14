@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login as loginApi } from '../api';
 import toast from 'react-hot-toast';
 
 export default function Login() {
   const { loginUser } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -19,7 +20,18 @@ export default function Login() {
       loginUser(user, token);
       toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
     } catch (err) {
-      toast.error(err.message);
+      if (err.data && err.data.requires_verification) {
+        toast.error('Account requires email verification. Redirecting to OTP screen...');
+        navigate('/register', {
+          state: {
+            requiresVerification: true,
+            email: err.data.email,
+            otpDemo: err.data.otp_demo,
+          },
+        });
+      } else {
+        toast.error(err.message);
+      }
     } finally {
       setLoading(false);
     }

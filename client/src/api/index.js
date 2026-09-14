@@ -20,7 +20,11 @@ async function request(url, options = {}) {
     ...options,
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) {
+    const error = new Error(data.error || 'Request failed');
+    error.data = data;
+    throw error;
+  }
   return data;
 }
 
@@ -30,6 +34,12 @@ export const login = (email, password) =>
 
 export const register = (data) =>
   request('/auth/register', { method: 'POST', body: JSON.stringify(data) });
+
+export const verifyOtp = (email, otp) =>
+  request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, otp }) });
+
+export const resendOtp = (email) =>
+  request('/auth/resend-otp', { method: 'POST', body: JSON.stringify({ email }) });
 
 export const getMe = () => request('/auth/me');
 
