@@ -95,6 +95,13 @@ export default function ItemDetail() {
                 <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--text-tertiary)' }}>person</span>
                 <span className="text-muted">Listed by</span><strong>{item.owner_name}</strong>
               </div>
+              {item.price_per_day > 0 && (
+                <div className="flex-gap text-sm">
+                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--color-primary)' }}>payments</span>
+                  <span className="text-muted">Rental price:</span>
+                  <strong style={{ color: 'var(--color-primary)' }}>₹{item.price_per_day}/day</strong>
+                </div>
+              )}
               {item.deposit_amount > 0 && (
                 <div className="flex-gap text-sm">
                   <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--text-tertiary)' }}>verified_user</span>
@@ -156,6 +163,16 @@ export default function ItemDetail() {
                 <div className="mt-2" style={{ padding: '0.75rem', background: 'var(--color-surface-container)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', border: '1px solid var(--color-border)' }}>
                   <div className="flex-between"><span className="text-muted">From:</span><strong>{format(startDate, 'MMM d, yyyy')}</strong></div>
                   {endDate && <div className="flex-between mt-1"><span className="text-muted">To:</span><strong>{format(endDate, 'MMM d, yyyy')}</strong></div>}
+                  {endDate && item.price_per_day > 0 && (() => {
+                    const days = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)));
+                    const total = days * item.price_per_day;
+                    return (
+                      <div className="flex-between mt-1" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+                        <span className="text-muted">Total cost ({days}d × ₹{item.price_per_day}):</span>
+                        <strong style={{ color: 'var(--color-primary)' }}>₹{total}</strong>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               <div className="form-group mt-2">

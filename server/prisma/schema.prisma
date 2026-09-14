@@ -43,6 +43,7 @@ model Item {
   item_condition  String    @default("Good")
   image_url       String?
   deposit_amount  Float     @default(0)
+  price_per_day   Float     @default(0)
   is_available    Boolean   @default(true)
   created_at      DateTime  @default(now())
 

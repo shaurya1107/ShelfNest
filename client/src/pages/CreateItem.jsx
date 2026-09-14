@@ -14,7 +14,7 @@ export default function CreateItem() {
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', category: 'Tools', item_condition: 'Good',
-    image_url: '', deposit_amount: 0,
+    image_url: '', deposit_amount: 0, price_per_day: 0,
   });
 
   useEffect(() => {
@@ -24,6 +24,7 @@ export default function CreateItem() {
           title: data.title, description: data.description || '',
           category: data.category, item_condition: data.item_condition,
           image_url: data.image_url || '', deposit_amount: data.deposit_amount || 0,
+          price_per_day: data.price_per_day || 0,
         });
       }).catch(() => { toast.error('Item not found'); navigate('/my-items'); });
     }
@@ -172,17 +173,31 @@ export default function CreateItem() {
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="item-deposit">Security Deposit (₹)</label>
-              <input
-                id="item-deposit"
-                type="number"
-                className="form-input"
-                placeholder="0"
-                value={form.deposit_amount}
-                onChange={(e) => setForm({ ...form, deposit_amount: parseFloat(e.target.value) || 0 })}
-                min="0"
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label htmlFor="item-deposit">Security Deposit (₹)</label>
+                <input
+                  id="item-deposit"
+                  type="number"
+                  className="form-input"
+                  placeholder="0"
+                  value={form.deposit_amount}
+                  onChange={(e) => setForm({ ...form, deposit_amount: parseFloat(e.target.value) || 0 })}
+                  min="0"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="item-price-per-day">Rental Price (₹/day) *</label>
+                <input
+                  id="item-price-per-day"
+                  type="number"
+                  className="form-input"
+                  placeholder="e.g. 50"
+                  value={form.price_per_day}
+                  onChange={(e) => setForm({ ...form, price_per_day: parseFloat(e.target.value) || 0 })}
+                  min="0"
+                />
+              </div>
             </div>
 
             <button type="submit" className="btn btn-primary btn-lg btn-full mt-2" disabled={loading} id="submit-item">

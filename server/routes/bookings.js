@@ -43,6 +43,7 @@ router.get('/', authenticate, async (req, res) => {
           item_title: item ? item.title : 'Item',
           item_image: item ? item.image_url : null,
           item_category: item ? item.category : 'General',
+          price_per_day: item ? item.price_per_day : 0,
           borrower_name: borrower ? borrower.name : 'Community Member',
           borrower_avatar: borrower ? borrower.avatar_url : null,
           borrower_email: borrower ? borrower.email : null,
@@ -68,6 +69,7 @@ router.get('/', authenticate, async (req, res) => {
           item_title: item ? item.title : 'Item',
           item_image: item ? item.image_url : null,
           item_category: item ? item.category : 'General',
+          price_per_day: item ? item.price_per_day : 0,
           owner_id: item ? item.owner_id : null,
           owner_name: item && item.owner ? item.owner.name : 'Community Member',
           owner_avatar: item && item.owner ? item.owner.avatar_url : null,
@@ -233,9 +235,8 @@ router.put('/:id/complete', authenticate, async (req, res) => {
     });
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    const isOwner = booking.item.owner_id === req.user.id;
-    const isBorrower = booking.borrower_id === req.user.id;
-    if (!isOwner && !isBorrower) return res.status(403).json({ error: 'Unauthorized to complete this booking' });
+    // Only the BORROWER can complete (upload return photo)
+    if (booking.borrower_id !== req.user.id) return res.status(403).json({ error: 'Only the borrower can complete the return' });
     if (booking.status !== 'active') return res.status(400).json({ error: 'Can only complete active bookings' });
 
     const { return_image_url } = req.body;

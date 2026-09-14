@@ -152,6 +152,7 @@ router.get('/:id', authenticate, async (req, res) => {
       item_condition: item.item_condition,
       image_url: item.image_url,
       deposit_amount: item.deposit_amount,
+      price_per_day: item.price_per_day,
       is_available: item.is_available,
       created_at: item.created_at,
       owner_name: item.owner.name,
@@ -171,7 +172,7 @@ router.get('/:id', authenticate, async (req, res) => {
 // POST /api/items
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { title, description, category, item_condition, image_url, deposit_amount } = req.body;
+    const { title, description, category, item_condition, image_url, deposit_amount, price_per_day } = req.body;
 
     if (!title || !category) {
       return res.status(400).json({ error: 'Title and category are required' });
@@ -186,6 +187,7 @@ router.post('/', authenticate, async (req, res) => {
         item_condition: item_condition || 'Good',
         image_url: image_url || null,
         deposit_amount: deposit_amount || 0,
+        price_per_day: price_per_day || 0,
       },
     });
 
@@ -210,7 +212,7 @@ router.put('/:id', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to edit this item' });
     }
 
-    const { title, description, category, item_condition, image_url, deposit_amount, is_available } = req.body;
+    const { title, description, category, item_condition, image_url, deposit_amount, price_per_day, is_available } = req.body;
 
     const updated = await prisma.item.update({
       where: { id: itemId },
@@ -221,6 +223,7 @@ router.put('/:id', authenticate, async (req, res) => {
         item_condition: item_condition || item.item_condition,
         image_url: image_url !== undefined ? image_url : item.image_url,
         deposit_amount: deposit_amount !== undefined ? deposit_amount : item.deposit_amount,
+        price_per_day: price_per_day !== undefined ? price_per_day : item.price_per_day,
         is_available: is_available !== undefined ? Boolean(is_available) : item.is_available,
       },
     });

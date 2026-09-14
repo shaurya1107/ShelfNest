@@ -43,6 +43,12 @@ export const resendOtp = (email) =>
 
 export const getMe = () => request('/auth/me');
 
+export const forgotPassword = (email) =>
+  request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+
+export const resetPassword = (email, otp, newPassword) =>
+  request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, otp, newPassword }) });
+
 export const updateProfile = (data) =>
   request('/auth/profile', { method: 'PUT', body: JSON.stringify(data) });
 
