@@ -15,7 +15,8 @@ const STATUS_CONFIG = {
 
 export default function MyBookings() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState('borrower');
+const { user } = useAuth();
+const [tab, setTab] = useState('borrower');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -91,9 +92,17 @@ export default function MyBookings() {
 
   return (
     <div className="page-container fade-in">
-      <div className="page-header">
-        <h1>My Rentals</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Track your borrows and manage incoming requests</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div>
+          <h1>My Rentals</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Track your borrows and manage incoming requests</p>
+        </div>
+        {user && (
+          <div style={{ background: 'var(--color-surface-container)', padding: '0.35rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.781rem', color: 'var(--text-secondary)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--color-primary)' }}>account_circle</span>
+            Logged in as: <strong style={{ color: 'var(--text-primary)' }}>{user.name}</strong>
+          </div>
+        )}
       </div>
 
       <div className="tabs">
@@ -130,6 +139,9 @@ export default function MyBookings() {
           {bookings.map((booking) => {
             const status = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pending;
             const isLoading = actionLoading === booking.id;
+            const displayOwnerName = booking.owner_name || (booking.item && booking.item.owner && booking.item.owner.name) || 'Community Member';
+            const displayBorrowerName = booking.borrower_name || (booking.borrower && booking.borrower.name) || 'Community Member';
+
             return (
               <div key={booking.id} className="booking-card" id={`booking-${booking.id}`}>
                 <div className="booking-card-header">
@@ -150,7 +162,7 @@ export default function MyBookings() {
                         {booking.item_title}
                       </h3>
                       <div className="text-sm text-muted mt-1" style={{ fontWeight: 500 }}>
-                        {tab === 'borrower' ? `Owner: ${booking.owner_name || 'Community Member'}` : `Borrower: ${booking.borrower_name || 'Community Member'}`}
+                        {tab === 'borrower' ? `Owner: ${displayOwnerName}` : `Borrower: ${displayBorrowerName}`}
                       </div>
                     </div>
                   </div>
