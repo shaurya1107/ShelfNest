@@ -31,7 +31,6 @@ export default function Register() {
     email: initialEmail,
     password: '',
     phone: '',
-    address: '',
     community_code: '',
   });
 
@@ -240,7 +239,7 @@ export default function Register() {
 
               {/* Phone (MANDATORY) */}
               <div className="form-group">
-                <label htmlFor="register-phone">Phone Number * <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 400 }}>(Mandatory for item contact)</span></label>
+                <label htmlFor="register-phone">Phone Number * <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 600 }}>(Required — for item contact)</span></label>
                 <div style={{ position: 'relative' }}>
                   <span className="material-symbols-outlined" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', fontSize: 18 }}>
                     phone
@@ -263,24 +262,6 @@ export default function Register() {
                 )}
               </div>
 
-              {/* Address */}
-              <div className="form-group">
-                <label htmlFor="register-address">Address (optional)</label>
-                <div style={{ position: 'relative' }}>
-                  <span className="material-symbols-outlined" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', fontSize: 18 }}>
-                    location_on
-                  </span>
-                  <input
-                    id="register-address"
-                    type="text"
-                    className="form-input"
-                    placeholder="12 Green Park, Block B"
-                    value={form.address}
-                    onChange={updateForm('address')}
-                    style={{ paddingLeft: '2.75rem' }}
-                  />
-                </div>
-              </div>
 
               {/* Community Code */}
               <div className="form-group">
