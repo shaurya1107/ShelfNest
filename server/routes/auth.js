@@ -27,10 +27,11 @@ function generateOtp() {
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, phone, address, community_code } = req.body;
+    const { name, email, password, phone, community_code } = req.body;
 
+    // --- Required field check ---
     if (!name || !email || !password || !phone || !community_code) {
-      return res.status(400).json({ error: 'Name, email, password, phone number, and community code are required' });
+      return res.status(400).json({ error: 'Name, email, password, phone number, and community code are all required' });
     }
 
     if (name.trim().length < 2) {
@@ -42,22 +43,18 @@ router.post('/register', async (req, res) => {
     }
 
     if (!PHONE_REGEX.test(phone.trim())) {
-      return res.status(400).json({ error: 'Phone number is mandatory and must contain a valid 10-15 digit phone number' });
+      return res.status(400).json({ error: 'Phone number must be a valid 10–15 digit number' });
     }
 
     const passErr = validatePassword(password);
-    if (passErr) {
-      return res.status(400).json({ error: passErr });
-    }
+    if (passErr) return res.status(400).json({ error: passErr });
 
     const cleanEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) {
-      return res.status(409).json({ error: 'Email address is already registered' });
+      return res.status(409).json({ error: 'An account with this email already exists. Please log in.' });
     }
 
-    const otpCode = generateOtp();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins expiration
     const password_hash = bcrypt.hashSync(password, 10);
 
     const user = await prisma.user.create({
@@ -66,11 +63,10 @@ router.post('/register', async (req, res) => {
         email: cleanEmail,
         password_hash,
         phone: phone.trim(),
-        address: address ? address.trim() : null,
         community_code: community_code.trim().toUpperCase(),
-        is_verified: false,
-        otp_code: otpCode,
-        otp_expires_at: otpExpires,
+        is_verified: true,   // Auto-verified — no OTP required
+        otp_code: null,
+        otp_expires_at: null,
       },
       select: {
         id: true, name: true, email: true, phone: true, address: true,
@@ -78,13 +74,9 @@ router.post('/register', async (req, res) => {
       },
     });
 
-    console.log(`[OTP VERIFICATION] Generated 6-digit OTP code for ${cleanEmail}: ${otpCode}`);
-
-    res.status(201).json({
-      message: 'Account created! Please enter the 6-digit OTP code sent to your email to verify your account.',
-      email: user.email,
-      otp_demo: otpCode,
-    });
+    // Return token immediately — user is logged in right after signup
+    const token = generateToken(user);
+    res.status(201).json({ message: `Welcome to ShelfNest, ${user.name}!`, user, token });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Server error during registration' });
@@ -92,6 +84,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/verify-otp
+
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -194,25 +187,16 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    // Auto-verify the user on successful login (fixes any legacy unverified accounts)
     if (!user.is_verified) {
-      // User created account but hasn't verified OTP yet
-      let otpCode = user.otp_code;
-      if (!otpCode || !user.otp_expires_at || new Date() > new Date(user.otp_expires_at)) {
-        otpCode = generateOtp();
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { otp_code: otpCode, otp_expires_at: new Date(Date.now() + 10 * 60 * 1000) },
-        });
-      }
-      return res.status(403).json({
-        requires_verification: true,
-        email: user.email,
-        otp_demo: otpCode,
-        error: 'Please verify your account with the 6-digit OTP code sent to your email.',
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { is_verified: true, otp_code: null, otp_expires_at: null },
       });
     }
 
     const { password_hash, otp_code, otp_expires_at, ...userWithoutPassword } = user;
+    userWithoutPassword.is_verified = true;
     const token = generateToken(user);
 
     res.json({ user: userWithoutPassword, token });
@@ -221,6 +205,7 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Server error during login' });
   }
 });
+
 
 // GET /api/auth/me
 router.get('/me', authenticate, async (req, res) => {

@@ -41,18 +41,12 @@ export default function Login() {
       loginUser(user, token);
       toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
     } catch (err) {
-      if (err.data && err.data.requires_verification) {
-        toast.error('Account requires email verification. Redirecting…');
-        navigate('/register', {
-          state: { requiresVerification: true, email: err.data.email, otpDemo: err.data.otp_demo },
-        });
-      } else {
-        toast.error(err.message);
-      }
+      toast.error(err.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
   };
+
 
   /* ── Forgot Password – Step 1: send OTP ── */
   const handleFpSendOtp = async (e) => {
